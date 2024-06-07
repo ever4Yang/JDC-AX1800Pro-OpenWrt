@@ -188,7 +188,7 @@ jobs:
         - 💻 这是 ${{ env.FIRMWARE_TAG }} 平台使用的 OpenWrt 固件
         - ⚽ 固件源码: ${{ env.REPO_URL }}
         - 💝 源码分支: ${{ env.REPO_BRANCH }}
-        - 🌐 默认地址: 192.168.1.1
+        - 🌐 默认地址: 10.0.0.1
         - 🔑 默认密码: password
         ' >> release.txt
         echo '### 🧊 固件版本
