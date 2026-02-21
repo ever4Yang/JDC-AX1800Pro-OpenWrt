@@ -1,26 +1,60 @@
-name: Delete Old Workflows
+name: Build JDCloud AX1800 Pro Firmware
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: 0 3 * * *
+  push:
+    branches:
+      - main
 
 jobs:
-  Cleaning:
+  build:
     runs-on: ubuntu-22.04
-
     steps:
-    - name: Delete Old Workflows
-      uses: Mattraks/delete-workflow-runs@main
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        retain_days: 2
-        keep_minimum_runs: 0
+      - name: 检出仓库
+        uses: actions/checkout@v4
 
-    - name: Delete Old Releases
-      uses: dev-drprasad/delete-older-releases@master
-      with:
-        keep_latest: 15
-        delete_tags: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 初始化编译环境
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential clang flex bison g++ gawk gcc-multilib \
+            gettext git libncurses-dev libssl-dev python3-distutils \
+            rsync unzip zlib1g-dev file wget
+
+      - name: 克隆 OpenWrt 源码
+        run: |
+          git clone https://github.com/coolsnowwolf/lede openwrt
+          cd openwrt
+          echo "src-git istore https://github.com/istoreos/istore.git;main" >> feeds.conf.default
+          echo "src-git homeproxy https://github.com/immortalwrt/homeproxy.git;master" >> feeds.conf.default
+
+      - name: 更新并安装 Feeds
+        run: |
+          cd openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: 载入自定义配置
+        run: |
+          cp configs/jdcloud_ax1800pro.config openwrt/.config
+          chmod +x scripts/diy.sh
+          cd openwrt
+          bash ../scripts/diy.sh
+
+      - name: 下载编译依赖包
+        run: |
+          cd openwrt
+          make defconfig
+          make download -j8
+
+      - name: 开始编译固件
+        run: |
+          cd openwrt
+          make -j$(nproc) || make -j1 V=s
+
+      - name: 上传固件
+        uses: actions/upload-artifact@v4
+        with:
+          name: JDCloud-AX1800Pro-Firmware
+          path: openwrt/bin/targets/ipq60xx/generic/*.bin
+          retention-days: 7
